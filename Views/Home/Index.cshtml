@@ -1,0 +1,69 @@
+﻿@{
+    ViewData["Title"] = "QR Code 生成與掃描";
+}
+
+<h2>QR Code 生成與掃描</h2>
+
+<!-- QR Code 生成 -->
+<div>
+    <h3>生成 QR Code</h3>
+    <input type="text" id="studentId" placeholder="輸入學號">
+    <button onclick="generateQRCode()">生成 QR Code</button>
+    <br>
+    <img id="qrCodeImage" style="display:block; margin-top:20px; max-width:200px;"/>
+</div>
+
+<hr>
+
+<!-- QR Code 掃描 -->
+<div>
+    <h3>掃描 QR Code</h3>
+    <div id="reader" style="width: 300px; border: 1px solid #ccc;"></div>
+    <button onclick="startScanning()">開始掃描</button>
+    <p id="scanResult"></p>
+</div>
+
+<!-- 加入 html5-qrcode 庫 -->
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<script>
+    // 生成 QR Code
+    function generateQRCode() {
+        var studentId = document.getElementById("studentId").value;
+        if (!studentId) {
+            alert("請輸入學號！");
+            return;
+        }
+
+        fetch(`/QRCode/GenerateQRCode?studentId=${studentId}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("qrCodeImage").src = data.qrCode;
+            })
+            .catch(error => console.error("QR Code 生成失敗:", error));
+    }
+
+    // 啟動 QR Code 掃描
+    function startScanning() {
+        let scanner = new Html5Qrcode("reader");
+        scanner.start(
+            { facingMode: "environment" }, // 手機鏡頭
+            { fps: 10, qrbox: 250 },
+            qrCodeMessage => {
+                document.getElementById("scanResult").innerText = "掃描結果: " + qrCodeMessage;
+                scanner.stop();
+
+                // 將掃描結果傳送至後端
+                fetch("/Attendance/RecordAttendance", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ studentId: qrCodeMessage })
+                })
+                .then(response => response.json())
+                .then(data => alert(data.message))
+                .catch(error => console.error("記錄失敗:", error));
+            },
+            errorMessage => { console.log(errorMessage); }
+        );
+    }
+</script>
